@@ -1,12 +1,19 @@
 # MVA-DLMI-2025---Histopathology-OOD-classification
 
 ## Installation
-
-1. Install dependencies:
+1. Aside the repository, create a virtual environnement
    ```bash
+   python -m venv ./dlmi
+3. Install dependencies:
+   ```bash
+   source /dlim/bin/python.exe
    pip install -r requirements.txt
    ```
-2. Ensure all required libraries are available.
+   For windows, change the firt line :
+   ```bash
+   source /dlim/Scripts/activate
+   ```
+5. Ensure all required libraries are available.
 
 # Datasets
 
