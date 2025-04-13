@@ -41,3 +41,25 @@ class PrecomputedDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.features[idx], self.labels[idx].float()
+
+
+class CenterAwareDataset(Dataset):
+    def __init__(self, dataset_path, preprocessing, mode):
+        super(CenterAwareDataset, self).__init__()
+        self.dataset_path = dataset_path
+        self.preprocessing = preprocessing
+        self.mode = mode
+        
+        with h5py.File(self.dataset_path, 'r') as hdf:        
+            self.image_ids = list(hdf.keys())
+
+    def __len__(self):
+        return len(self.image_ids)
+
+    def __getitem__(self, idx):
+        img_id = self.image_ids[idx]
+        with h5py.File(self.dataset_path, 'r') as hdf:
+            img = torch.tensor(np.array(hdf.get(img_id).get('img')))
+            label = np.array(hdf.get(img_id).get('label')) if self.mode == 'train' else torch.Tensor([-1])
+            center = int(np.array(hdf.get(img_id).get('metadata'))[0])
+        return self.preprocessing(img).float(), label, center

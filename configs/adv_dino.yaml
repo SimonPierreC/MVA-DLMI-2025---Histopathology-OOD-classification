@@ -1,0 +1,12 @@
+train_path: "../data_test/train.h5"
+val_path: "../data_test/val.h5"
+
+optimizer: "Adam"
+optimizer_params:
+  lr: 0.00005
+batch_size: 16
+task_loss: "BCEWithLogitsLoss"
+domain_loss: "CrossEntropyLoss"
+metric: "Accuracy"
+num_epochs: 100
+patience: 10
