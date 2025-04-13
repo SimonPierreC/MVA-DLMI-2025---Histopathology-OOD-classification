@@ -11,7 +11,7 @@
    ```
    For windows, change the firt line :
    ```bash
-   source /dlim/Scripts/activate
+   source /dlmi/Scripts/activate
    ```
 5. Ensure all required libraries are available.
 
