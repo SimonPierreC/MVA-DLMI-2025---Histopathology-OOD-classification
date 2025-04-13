@@ -1,5 +1,5 @@
-train_path: "../data_test/train.h5"
-val_path: "../data_test/val.h5"
+train_path: "../data/train.h5"
+val_path: "../data/val.h5"
 
 optimizer: "Adam"
 optimizer_params:

@@ -12,19 +12,31 @@
 
 The dataset has to be of the following shape :
 
-<pre> -data/
+<pre> data/
         -train.h5
         -val.h5
         -test.h5
 </pre>
 
+You can change this setup in the configs/\*.yaml file
+
 ## Running and testing the Models
 
 1. ```bash
-
+    cd ~/MVA-DLMI-2025---Histopathology-OOD-classification
+    py main.py
    ```
+2. select in the commande line you want to run and test :
+<pre>Select a model to train:
+3. BaseLine
+4. CutMix
+5. Fine-Tuned Dino
+6. Adversarial DINO (0.1)
+7. Adversarial DINO (lambda_p)
+8. Histogram Adaptation
+</pre>
 
 ## Model Files and Outputs
 
-• Pretrained models are in the models directory.  
-• Test outputs (logs, metrics) are saved in the outputs folder.
+• Pretrained models are in the outputs directory.
+• Test files for submissions are in the outputs directory.
