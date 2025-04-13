@@ -21,7 +21,7 @@ np.random.seed(SEED)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Working on {device}.")
 
-test_path = "../data/test.h5"
+test_data_path = "../data_test/test.h5"
 batch_size = 32
 
 parser = argparse.ArgumentParser()
@@ -31,90 +31,67 @@ args = parser.parse_args()
 transform = transforms.Compose([
     transforms.Resize((98, 98))
 ])
-if args.test_param == "baseline":
-    def precompute(dataloader, model, device):
-        xs, ys = [], []
-        for x, y in tqdm(dataloader, leave=False):
-            with torch.no_grad():
-                xs.append(model(x.to(device)).detach().cpu().numpy())
-            ys.append(y.numpy())
-        xs = np.vstack(xs)
-        ys = np.concatenate(ys, axis=0) if ys else np.array([])
-        return torch.tensor(xs), torch.tensor(ys)
 
-    def precompute_dataset(path, model, device, batch_size = 16, mode = 'train'):
-        preprocessing = transforms.Resize((98, 98))
-        dataset = BaselineDataset(path, preprocessing, mode)
-        dataloader = DataLoader(dataset, shuffle=True, batch_size=batch_size)
-        model.eval()
-        return PrecomputedDataset(*precompute(dataloader, model, device))
+dino_model = AutoModel.from_pretrained("facebook/dinov2-small")
+dino_model.to(device)
+# LoRA Configuration
+lora_config = LoraConfig(
+    r=16,  # Rank
+    lora_alpha=16,
+    lora_dropout=0.1,
+    target_modules=["query", "value"]  # Target attention layers
+)
 
-    print('Loading model...')
-    feature_extractor = torch.hub.load('facebookresearch/dinov2', 'dinov2_vits14').to(device)
-    feature_extractor.eval()
+# Apply LoRA to DINOv2 Model
+dino_lora = get_peft_model(dino_model, lora_config)
 
-    model = torch.nn.Sequential(
-            torch.nn.Linear(256, 128),
-            torch.nn.Dropout(0.5),
-            torch.nn.ReLU(),
-            torch.nn.Linear(128, 64),
-            torch.nn.Dropout(0.5),
-            torch.nn.ReLU(),
-            torch.nn.Linear(64, 1)
-        ).to(device)
-    
-    model.load_state_dict(torch.load("../outputs/best_model.pth"))
-    
-    TEST_IMAGES_PATH = test_data_path
-    with h5py.File(TEST_IMAGES_PATH, 'r') as hdf:
-        test_ids = list(hdf.keys())
+if args.test_param == "finetuned" or args.test_param == "cutmix":
+    model = BinaryClassifier(dino_lora).to(device)
+    if args.test_param == "cutmix":
+        model = BinaryClassifier(dino_lora, 2).to(device)
+    model.load_state_dict(torch.load("./outputs/best_model_finetuned.pth"))
 
-    solutions_data = {'ID': [], 'Pred': []}
-    with h5py.File(TEST_IMAGES_PATH, 'r') as hdf:
-        for test_id in tqdm(test_ids):
-            img = transform(torch.tensor(np.array(hdf.get(test_id).get('img'))).unsqueeze(0).float())
-            pred = model.fc(model.feature_extractor(img.to(device)).last_hidden_state[:, 0, :]).detach().cpu()
-            solutions_data['ID'].append(int(test_id))
-            solutions_data['Pred'].append(int(pred.item() > 0.5))
-    solutions_data = pd.DataFrame(solutions_data).set_index('ID')
-    solutions_data.to_csv('baseline_test.csv')
-    
+if args.test_param == "adversarial":
+    model = AdversarialClassifier(dino_lora, 384, 2, 3).to(device)
+    model.load_state_dict(torch.load("./outputs/dino_lora_adversarial.pth"))
 
-else:
-    dino_model = AutoModel.from_pretrained("facebook/dinov2-small")
-    dino_model.to(device)
-    # LoRA Configuration
-    lora_config = LoraConfig(
-        r=16,  # Rank
-        lora_alpha=16,
-        lora_dropout=0.1,
-        target_modules=["query", "value"]  # Target attention layers
-    )
+if args.test_param == "histogram":
+    mean_hists_list_test = []
+    with h5py.File(test_data_path, "r") as f:
+        for img_id in f.keys():
+            mean_hists_list_test.append(compute_average_histogram(f[img_id]['img']))
+        
+    mean_hists_test = np.mean(np.array(mean_hists_list_val), axis = 0)
+    transform_train = transforms.Compose([
+        transforms.Resize((98, 98)),
+        transforms.Lambda(lambda x: compute_average_histogram(x, mean_hists_test))
+    ]) 
+        
+    model = BinaryClassifier(dino_lora).to(device)
+    model.load_state_dict(torch.load("../outputs/best_model_finetuned.pth"))
+        
+    
+TEST_IMAGES_PATH = test_data_path
+with h5py.File(TEST_IMAGES_PATH, 'r') as hdf:
+    test_ids = list(hdf.keys())
 
-    # Apply LoRA to DINOv2 Model
-    dino_lora = get_peft_model(dino_model, lora_config)
-    
-    if args.test_param == "fine-tuned_dino":
-        model = BinaryClassifier(dino_lora).to(device)
-        model.load_state_dict(torch.load("../outputs/best_model_finetuned.pth"))
-    
-    if args.test_param == "fine-tuned_dino_adversarial":
-        model = AdversarialClassifier(dino_lora).to(device)
-        model.load_state_dict(torch.load("../outputs/dino_lora_adversarial.pth"))
-    
-    
-    TEST_IMAGES_PATH = test_data_path
-    with h5py.File(TEST_IMAGES_PATH, 'r') as hdf:
-        test_ids = list(hdf.keys())
-
-    solutions_data = {'ID': [], 'Pred': []}
-    with h5py.File(TEST_IMAGES_PATH, 'r') as hdf:
-        for test_id in tqdm(test_ids):
-            img = transform(torch.tensor(np.array(hdf.get(test_id).get('img'))).unsqueeze(0).float())
-            pred = model.fc((img.to(device))).detach().cpu()
-            solutions_data['ID'].append(int(test_id))
-            solutions_data['Pred'].append(int(pred.item() > 0.5))
-    solutions_data = pd.DataFrame(solutions_data).set_index('ID')
-    solutions_data.to_csv('baseline_test.csv')
+solutions_data = {'ID': [], 'Pred': []}
+with h5py.File(TEST_IMAGES_PATH, 'r') as hdf:
+    model.eval()
+    for test_id in test_ids:
+        # Have to do a forward differently in function of the model
+        img = transform(torch.tensor(np.array(hdf.get(test_id).get('img'))).unsqueeze(0).float().to(device))
+        if args.test_param == "histogram" or args.test_param == "finetuned" or args.test_param == "cutmix":
+            if args.test_param == 'cutmix':
+                pred = torch.nn.Softmax(dim=2)(model(img)).detach().cpu()[1]
+            else:
+                pred = torch.nn.Sigmoid()(model(img)).detach().cpu()
+        elif args.test_param == "adversarial":
+            pred, = model(img)
+            pred = torch.nn.Sigmoid()(pred).detach().cpu()
+        solutions_data['ID'].append(int(test_id))
+        solutions_data['Pred'].append(int(pred.item() > 0.5))
+solutions_data = pd.DataFrame(solutions_data).set_index('ID')
+solutions_data.to_csv(f'./outputs/test_{args.test_param}.csv')
 
 

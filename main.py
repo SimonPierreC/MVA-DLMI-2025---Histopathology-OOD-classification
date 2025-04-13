@@ -47,15 +47,21 @@ def main():
     
     if selected_model == "train_adv_dino":
         test_param = 'adversarial'
-    elif selected_model == "fine-tuned_dino":
+    elif selected_model == "train_finetuned_dino":
         test_param = 'finetuned'
-    elif test_param == "cutmix":
+    elif selected_model == "train_cutmix":
         test_param = 'cutmix'
     
-    subprocess.run(
-        [venv_python, f"testing/testing_model.py", "--test_param", test_param],
-        env=env
-    )
+    if selected_model == "train_baseline":
+        subprocess.run(
+            [venv_python, f"testing/testing_baseline.py"],
+            env=env
+        )
+    else:
+        subprocess.run(
+            [venv_python, f"testing/testing_model.py", "--test_param", test_param],
+            env=env
+        )
 
 if __name__ == "__main__":
     main()

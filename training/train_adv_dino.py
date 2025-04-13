@@ -49,7 +49,7 @@ dino_model = AutoModel.from_pretrained("facebook/dinov2-small")
 dino_model.to(device)
 # LoRA Configuration
 lora_config = LoraConfig(
-    r=4,  # Rank
+    r=16,  # Rank
     lora_alpha=16,
     lora_dropout=0.1,
     target_modules=["query", "value"]  # Target attention layers
