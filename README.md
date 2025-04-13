@@ -26,7 +26,7 @@ You can change this setup in the configs/\*.yaml file
     cd ~/MVA-DLMI-2025---Histopathology-OOD-classification
     py main.py
    ```
-2. select in the commande line you want to run and test :
+2. select in the commande line you the model you want to run and test (see report for more details):
 <pre>Select a model to train:
 3. BaseLine
 4. CutMix
@@ -38,5 +38,6 @@ You can change this setup in the configs/\*.yaml file
 
 ## Model Files and Outputs
 
+• The models follow the configurations as mentionned in the report
 • Pretrained models are in the outputs directory.
 • Test files for submissions are in the outputs directory.
